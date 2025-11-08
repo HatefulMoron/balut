@@ -1,4 +1,4 @@
-.PHONY: all dev start clean
+.PHONY: all dev start check fix clean
 
 # Project name
 GAME_NAME = balut
@@ -25,6 +25,14 @@ dev:
 # Use this for testing the build
 start: all
 	love $(LOVE_FILE)
+
+# Check the code for issues
+check:
+	stylua $(SRC_DIR) --check
+
+# Fix the code for issues
+fix:
+	stylua $(SRC_DIR)
 
 # Clean build artifacts
 clean:
