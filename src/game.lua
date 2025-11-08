@@ -1,12 +1,24 @@
 -- Game module: Contains core Balut game logic
 
 local game = {}
+local upgrades = require("upgrades")
 
 -- Private game state (will be initialized by game.new)
 local state = nil
 
+-- Persistent player state (survives across game rounds)
+local playerState = {
+	coins = 10,
+	ownedMods = {},
+	ownedTricks = {},
+}
+
+-- Shop state
+local shopState = {
+	availableUpgrades = {},
+}
+
 -- Count occurrences of a value in dice.
--- For example, countDice(5) will return the number of 5's in the dice.
 local function countDice(value)
 	local count = 0
 	for i = 1, #state.dice do
@@ -18,7 +30,6 @@ local function countDice(value)
 end
 
 -- Get counts of each die value.
--- For example, getDieCounts() will return a table with the counts of each die value.
 local function getDieCounts()
 	local counts = { 0, 0, 0, 0, 0, 0 }
 	for i = 1, #state.dice do
@@ -27,19 +38,22 @@ local function getDieCounts()
 	return counts
 end
 
--- Score the fours.
+-- Score the fours (respects mod multipliers).
 local function scoreFours()
-	return countDice(4) * 4
+	local multiplier = state.gameParams.foursMultiplier or 4
+	return countDice(4) * multiplier
 end
 
--- Score the fives.
+-- Score the fives (respects mod multipliers).
 local function scoreFives()
-	return countDice(5) * 5
+	local multiplier = state.gameParams.fivesMultiplier or 5
+	return countDice(5) * multiplier
 end
 
--- Score the sixes.
+-- Score the sixes (respects mod multipliers).
 local function scoreSixes()
-	return countDice(6) * 6
+	local multiplier = state.gameParams.sixesMultiplier or 6
+	return countDice(6) * multiplier
 end
 
 -- Score the straight.
@@ -156,12 +170,22 @@ end
 
 -- Start a new hand.
 function game.startNewHand()
-	for i = 1, state.numDice do
+	local numDice = state.numDice
+
+	-- Apply active trick effects
+	for i, trick in ipairs(state.activeTricks) do
+		if trick.id == "double_dip" then
+			numDice = numDice * 2
+		end
+	end
+
+	for i = 1, numDice do
 		state.dice[i] = 0
 		state.locked[i] = false
 	end
 	state.rerollsLeft = state.maxRerolls
 	state.phase = "rolling"
+	state.activeTricks = {} -- Clear active tricks after applying
 	game.rollDice()
 end
 
@@ -208,24 +232,131 @@ function game.getState()
 	return state
 end
 
+-- Get player state (coins, mods, tricks).
+function game.getPlayerState()
+	return playerState
+end
+
+-- Get shop state.
+function game.getShopState()
+	return shopState
+end
+
 -- Check if game is won.
 function game.isWon()
 	return state.totalScore >= state.goalScore
 end
 
--- Initialize a new game with parameters.
-function game.new(numDice, maxHands, maxRerolls, goalScore)
+-- Apply mod effects to game parameters.
+local function applyModEffects(baseParams)
+	local params = {
+		numDice = baseParams.numDice,
+		maxHands = baseParams.maxHands,
+		maxRerolls = baseParams.maxRerolls,
+		foursMultiplier = 4,
+		fivesMultiplier = 5,
+		sixesMultiplier = 6,
+	}
+
+	for _, mod in ipairs(playerState.ownedMods) do
+		if mod.effect then
+			mod.effect(params)
+		end
+	end
+
+	return params
+end
+
+-- Start shop phase.
+function game.startShop()
+	-- Generate 3-5 random upgrades
+	local count = love.math.random(3, 5)
+	shopState.availableUpgrades = upgrades.getShopSelection(playerState.ownedMods, count)
+
+	if state then
+		state.phase = "shop"
+	else
+		-- Initialize minimal state for shop
+		state = { phase = "shop" }
+	end
+end
+
+-- Purchase an upgrade from shop.
+function game.purchaseUpgrade(upgradeItem)
+	local upgrade = upgradeItem.upgrade
+	local upgradeType = upgradeItem.type
+
+	-- Check if player can afford it
+	if playerState.coins < upgrade.cost then
+		return false, "Not enough coins"
+	end
+
+	-- Check slot limits
+	if upgradeType == "mod" then
+		if #playerState.ownedMods >= 5 then
+			return false, "Mod slots full (max 5)"
+		end
+	elseif upgradeType == "trick" then
+		if #playerState.ownedTricks >= 3 then
+			return false, "Trick slots full (max 3)"
+		end
+	end
+
+	-- Deduct coins
+	playerState.coins = playerState.coins - upgrade.cost
+
+	-- Add to inventory
+	if upgradeType == "mod" then
+		table.insert(playerState.ownedMods, upgrade)
+	elseif upgradeType == "trick" then
+		table.insert(playerState.ownedTricks, upgrade)
+	end
+
+	return true, "Purchase successful"
+end
+
+-- Use a trick during gameplay.
+function game.useTrick(trickIndex)
+	if trickIndex < 1 or trickIndex > #playerState.ownedTricks then
+		return false
+	end
+
+	local trick = playerState.ownedTricks[trickIndex]
+
+	-- Mark trick as active for this hand
+	if not state.activeTricks then
+		state.activeTricks = {}
+	end
+	table.insert(state.activeTricks, trick)
+
+	-- Remove trick from inventory (consumed)
+	table.remove(playerState.ownedTricks, trickIndex)
+
+	return true
+end
+
+-- Start a new game round (after shop).
+function game.startGameRound(baseNumDice, baseMaxHands, baseMaxRerolls, goalScore)
+	-- Apply mod effects to base parameters
+	local gameParams = applyModEffects({
+		numDice = baseNumDice,
+		maxHands = baseMaxHands,
+		maxRerolls = baseMaxRerolls,
+	})
+
 	state = {
-		numDice = numDice,
-		maxHands = maxHands,
-		maxRerolls = maxRerolls,
+		numDice = gameParams.numDice,
+		maxHands = gameParams.maxHands,
+		maxRerolls = gameParams.maxRerolls,
+		gameParams = gameParams, -- Store for scoring
 		dice = {},
 		locked = {},
 		rerollsLeft = 0,
 		currentHand = 1,
 		totalScore = 0,
 		goalScore = goalScore,
-		phase = "rolling", -- "rolling", "selecting", "gameover"
+		phase = "rolling",
+		activeTricks = {},
 		categories = {
 			{ name = "Fours", used = false },
 			{ name = "Fives", used = false },
@@ -239,6 +370,26 @@ function game.new(numDice, maxHands, maxRerolls, goalScore)
 
 	game.startNewHand()
 	return state
+end
+
+-- Award coins on victory.
+function game.awardVictory()
+	local coinsEarned = 10 -- Base reward
+	playerState.coins = playerState.coins + coinsEarned
+	return coinsEarned
+end
+
+-- Reset everything (new game from scratch).
+function game.resetAll()
+	playerState.coins = 10
+	playerState.ownedMods = {}
+	playerState.ownedTricks = {}
+	game.startShop()
+end
+
+-- Initialize game (called once at startup).
+function game.init()
+	game.startShop()
 end
 
 return game
