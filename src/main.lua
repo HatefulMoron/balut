@@ -16,6 +16,29 @@ function love.load()
 	game.new(NUM_DICE, MAX_HANDS, MAX_REROLLS, goalScore)
 end
 
+-- Helper function to draw the category score table
+local function drawCategoryTable(state)
+	love.graphics.setColor(1, 1, 1)
+	love.graphics.print("Categories:", 20, 250, 0, 1.5, 1.5)
+
+	local startY = 290
+	for i, category in ipairs(state.categories) do
+		local y = startY + (i - 1) * 35
+
+		if category.used then
+			love.graphics.setColor(0.4, 0.4, 0.4)
+			love.graphics.print(category.name .. ": USED", 20, y)
+		else
+			love.graphics.setColor(1, 1, 1)
+			local score = game.getCategoryScore(category.name)
+			if state.phase == "selecting" then
+				love.graphics.setColor(1, 1, 0.5) -- Highlight during selection
+			end
+			love.graphics.print(category.name .. ": " .. score, 20, y)
+		end
+	end
+end
+
 -- Handle mouse clicks.
 function love.mousepressed(x, y, button)
 	if button ~= 1 then
@@ -24,41 +47,42 @@ function love.mousepressed(x, y, button)
 
 	local state = game.getState()
 
-	if state.phase == "rolling" then
-		-- Check if clicking on dice
-		for i = 1, NUM_DICE do
-			local diceX = 50 + (i - 1) * 80
-			local diceY = 100
-			local diceSize = 60
+	if state.phase == "rolling" or state.phase == "selecting" then
+		-- Check if clicking on dice (only during rolling phase)
+		if state.phase == "rolling" then
+			for i = 1, NUM_DICE do
+				local diceX = 250 + (i - 1) * 110
+				local diceY = 80
+				local diceSize = 100
 
-			if x >= diceX and x <= diceX + diceSize and y >= diceY and y <= diceY + diceSize then
-				game.toggleLock(i)
+				if x >= diceX and x <= diceX + diceSize and y >= diceY and y <= diceY + diceSize then
+					game.toggleLock(i)
+					return
+				end
+			end
+
+			-- Check if clicking reroll button (right side, only during rolling)
+			if x >= 550 and x <= 750 and y >= 250 and y <= 300 then
+				if state.rerollsLeft > 0 then
+					game.reroll()
+				end
 				return
 			end
 		end
 
-		-- Check if clicking reroll button
-		if x >= 300 and x <= 500 and y >= 200 and y <= 240 then
-			if state.rerollsLeft > 0 then
-				game.reroll()
-			else
-				game.moveToSelecting()
-			end
-		end
-	elseif state.phase == "selecting" then
-		-- Check if clicking on a category
-		local startY = 300
+		-- Check if clicking on a category in the table (available in both rolling and selecting phases)
+		local startY = 290
 		for i, category in ipairs(state.categories) do
-			local categoryY = startY + (i - 1) * 30
+			local categoryY = startY + (i - 1) * 35
 
-			if not category.used and x >= 20 and x <= 400 and y >= categoryY and y <= categoryY + 25 then
+			if not category.used and x >= 20 and x <= 250 and y >= categoryY and y <= categoryY + 30 then
 				game.selectCategory(category.name)
 				return
 			end
 		end
 	elseif state.phase == "gameover" then
 		-- Click to restart
-		if x >= 300 and x <= 500 and y >= 400 and y <= 440 then
+		if x >= 300 and x <= 500 and y >= 400 and y <= 450 then
 			local goalScore = love.math.random(100, 150)
 			game.new(NUM_DICE, MAX_HANDS, MAX_REROLLS, goalScore)
 		end
@@ -73,8 +97,6 @@ function love.keypressed(key)
 	if key == "space" and state.phase == "rolling" then
 		if state.rerollsLeft > 0 then
 			game.reroll()
-		else
-			game.moveToSelecting()
 		end
 	-- If the key is escape, quit the game
 	elseif key == "escape" then
@@ -92,20 +114,18 @@ function love.draw()
 
 	local state = game.getState()
 
-	-- Title
+	-- Title and score display (top)
 	love.graphics.setColor(1, 1, 1)
 	love.graphics.print("BALUT", 20, 20, 0, 2, 2)
+	love.graphics.print("Hand: " .. state.currentHand .. "/" .. MAX_HANDS, 550, 20, 0, 1.3, 1.3)
+	love.graphics.print("Score: " .. state.totalScore .. " / Goal: " .. state.goalScore, 550, 45, 0, 1.3, 1.3)
 
-	-- Score display
-	love.graphics.print("Hand: " .. state.currentHand .. "/" .. MAX_HANDS, 20, 60)
-	love.graphics.print("Score: " .. state.totalScore .. " / Goal: " .. state.goalScore, 200, 60)
-
-	if state.phase == "rolling" then
-		-- Draw dice
+	if state.phase == "rolling" or state.phase == "selecting" then
+		-- Draw larger dice at the top center
 		for i = 1, NUM_DICE do
-			local x = 50 + (i - 1) * 80
-			local y = 100
-			local size = 60
+			local x = 250 + (i - 1) * 110
+			local y = 80
+			local size = 100
 
 			-- Draw die background
 			if state.locked[i] then
@@ -113,87 +133,69 @@ function love.draw()
 			else
 				love.graphics.setColor(0.5, 0.5, 0.5) -- Gray for unlocked
 			end
-			love.graphics.rectangle("fill", x, y, size, size)
+			love.graphics.rectangle("fill", x, y, size, size, 5, 5)
 
 			-- Draw die border
 			love.graphics.setColor(1, 1, 1)
-			love.graphics.rectangle("line", x, y, size, size)
+			love.graphics.rectangle("line", x, y, size, size, 5, 5)
 
-			-- Draw die value
-			love.graphics.print(tostring(state.dice[i]), x + 20, y + 15, 0, 2, 2)
+			-- Draw die value (larger text)
+			love.graphics.print(tostring(state.dice[i]), x + 35, y + 25, 0, 3, 3)
 		end
 
-		-- Draw reroll button/info
-		love.graphics.setColor(1, 1, 1)
-		love.graphics.print("Rerolls left: " .. state.rerollsLeft, 300, 180)
+		-- Draw persistent category table on the left
+		drawCategoryTable(state)
 
-		if state.rerollsLeft > 0 then
-			love.graphics.setColor(0.2, 0.5, 0.8)
-			love.graphics.rectangle("fill", 300, 200, 200, 40)
+		-- Draw controls on the right side
+		if state.phase == "rolling" then
 			love.graphics.setColor(1, 1, 1)
-			love.graphics.rectangle("line", 300, 200, 200, 40)
-			love.graphics.print("REROLL (Space)", 320, 212)
-		else
-			love.graphics.setColor(0.8, 0.5, 0.2)
-			love.graphics.rectangle("fill", 300, 200, 200, 40)
-			love.graphics.setColor(1, 1, 1)
-			love.graphics.rectangle("line", 300, 200, 200, 40)
-			love.graphics.print("SELECT CATEGORY", 310, 212)
-		end
+			love.graphics.print("Rerolls left: " .. state.rerollsLeft, 550, 220, 0, 1.2, 1.2)
 
-		-- Instructions
-		love.graphics.print("Click dice to lock/unlock", 50, 250)
-	elseif state.phase == "selecting" then
-		-- Show current dice (locked)
-		for i = 1, NUM_DICE do
-			local x = 50 + (i - 1) * 80
-			local y = 100
-			local size = 60
-
-			love.graphics.setColor(0.3, 0.3, 0.3)
-			love.graphics.rectangle("fill", x, y, size, size)
-			love.graphics.setColor(1, 1, 1)
-			love.graphics.rectangle("line", x, y, size, size)
-			love.graphics.print(tostring(state.dice[i]), x + 20, y + 15, 0, 2, 2)
-		end
-
-		-- Show categories
-		love.graphics.print("Select a category:", 20, 270)
-		local startY = 300
-		for i, category in ipairs(state.categories) do
-			local y = startY + (i - 1) * 30
-
-			if category.used then
-				love.graphics.setColor(0.5, 0.5, 0.5)
-				love.graphics.print(category.name .. " (used)", 20, y)
+			-- Reroll button
+			if state.rerollsLeft > 0 then
+				love.graphics.setColor(0.2, 0.5, 0.8)
 			else
-				love.graphics.setColor(1, 1, 1)
-				local score = game.getCategoryScore(category.name)
-				love.graphics.print(category.name .. ": " .. score .. " points", 20, y)
+				love.graphics.setColor(0.3, 0.3, 0.3)
 			end
+			love.graphics.rectangle("fill", 550, 250, 200, 50, 5, 5)
+			love.graphics.setColor(1, 1, 1)
+			love.graphics.rectangle("line", 550, 250, 200, 50, 5, 5)
+			love.graphics.print("REROLL (Space)", 570, 267, 0, 1.2, 1.2)
+
+			-- Instructions
+			love.graphics.setColor(0.7, 0.7, 0.7)
+			love.graphics.print("Click dice to lock/unlock", 250, 200, 0, 1.1, 1.1)
+			love.graphics.setColor(1, 1, 0.5)
+			love.graphics.print("Click a category", 550, 330, 0, 1.2, 1.2)
+			love.graphics.print("to score anytime", 550, 355, 0, 1.2, 1.2)
+		elseif state.phase == "selecting" then
+			-- Instructions for selecting phase
+			love.graphics.setColor(1, 1, 0.5)
+			love.graphics.print("Click a category", 550, 250, 0, 1.3, 1.3)
+			love.graphics.print("to score this hand", 550, 275, 0, 1.3, 1.3)
 		end
 	elseif state.phase == "gameover" then
 		-- Game over screen
 		love.graphics.setColor(1, 1, 1)
-		love.graphics.print("GAME OVER", 300, 200, 0, 2, 2)
+		love.graphics.print("GAME OVER", 280, 200, 0, 2.5, 2.5)
 
 		if game.isWon() then
 			love.graphics.setColor(0.3, 1, 0.3)
-			love.graphics.print("YOU WIN!", 320, 250, 0, 2, 2)
+			love.graphics.print("YOU WIN!", 320, 270, 0, 2, 2)
 		else
 			love.graphics.setColor(1, 0.3, 0.3)
-			love.graphics.print("YOU LOSE!", 320, 250, 0, 2, 2)
+			love.graphics.print("YOU LOSE!", 310, 270, 0, 2, 2)
 		end
 
 		love.graphics.setColor(1, 1, 1)
-		love.graphics.print("Final Score: " .. state.totalScore, 300, 300)
-		love.graphics.print("Goal Score: " .. state.goalScore, 300, 330)
+		love.graphics.print("Final Score: " .. state.totalScore, 300, 330, 0, 1.5, 1.5)
+		love.graphics.print("Goal Score: " .. state.goalScore, 300, 360, 0, 1.5, 1.5)
 
 		-- Restart button
 		love.graphics.setColor(0.2, 0.5, 0.8)
-		love.graphics.rectangle("fill", 300, 400, 200, 40)
+		love.graphics.rectangle("fill", 300, 400, 200, 50, 5, 5)
 		love.graphics.setColor(1, 1, 1)
-		love.graphics.rectangle("line", 300, 400, 200, 40)
-		love.graphics.print("RESTART (R)", 330, 412)
+		love.graphics.rectangle("line", 300, 400, 200, 50, 5, 5)
+		love.graphics.print("RESTART (R)", 330, 415, 0, 1.3, 1.3)
 	end
 end
