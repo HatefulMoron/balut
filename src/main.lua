@@ -1,3 +1,6 @@
+-- main.lua
+-- The main entry point for the game.
+
 -- Import modules
 local constants = require("constants")
 local game = require("game")

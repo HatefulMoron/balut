@@ -1,6 +1,5 @@
--- The base constants for the game.
--- These are informed by the game rules.
--- These could be overridden by upgrades.
+-- constants.lua
+-- Defines the base constants for the game.
 
 local constants = {}
 

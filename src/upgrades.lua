@@ -1,4 +1,5 @@
--- Upgrades module: Defines all mods and tricks available in the shop
+-- upgrades.lua
+-- Defines all mods and tricks available in the shop.
 
 local upgrades = {}
 
@@ -9,6 +10,7 @@ upgrades.mods = {
 		name = "Extra Reroll",
 		description = "Gain +1 reroll per hand",
 		cost = 8,
+		rarity = "Common",
 		effect = function(gameParams)
 			gameParams.maxRerolls = gameParams.maxRerolls + 1
 		end,
@@ -18,6 +20,7 @@ upgrades.mods = {
 		name = "Bonus Hand",
 		description = "Play one additional hand",
 		cost = 10,
+		rarity = "Uncommon",
 		effect = function(gameParams)
 			gameParams.maxHands = gameParams.maxHands + 1
 		end,
@@ -27,6 +30,7 @@ upgrades.mods = {
 		name = "Lucky Sixes",
 		description = "Sixes score x7 instead of x6",
 		cost = 7,
+		rarity = "Common",
 		effect = function(gameParams)
 			gameParams.sixesMultiplier = 7
 		end,
@@ -36,6 +40,7 @@ upgrades.mods = {
 		name = "Hot Streak",
 		description = "Roll one extra die",
 		cost = 12,
+		rarity = "Rare",
 		effect = function(gameParams)
 			gameParams.numDice = gameParams.numDice + 1
 		end,
@@ -45,6 +50,7 @@ upgrades.mods = {
 		name = "Double Down",
 		description = "Fours score x8 instead of x4",
 		cost = 7,
+		rarity = "Common",
 		effect = function(gameParams)
 			gameParams.foursMultiplier = 8
 		end,
@@ -54,6 +60,7 @@ upgrades.mods = {
 		name = "Ace in the Hole",
 		description = "Gain +2 rerolls per hand",
 		cost = 15,
+		rarity = "Rare",
 		effect = function(gameParams)
 			gameParams.maxRerolls = gameParams.maxRerolls + 2
 		end,
@@ -63,6 +70,7 @@ upgrades.mods = {
 		name = "High Roller",
 		description = "Fives score x7 instead of x5",
 		cost = 8,
+		rarity = "Common",
 		effect = function(gameParams)
 			gameParams.fivesMultiplier = 7
 		end,
@@ -76,6 +84,7 @@ upgrades.tricks = {
 		name = "Double Dip",
 		description = "Double the dice for one hand",
 		cost = 5,
+		rarity = "Uncommon",
 		-- Trick effects are applied when used, not at game start
 	},
 }

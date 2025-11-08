@@ -1,4 +1,7 @@
+-- conf.lua
 -- Main configuration file for the game.
+
+-- Configuration for the game.
 -- See https://love2d.org/wiki/Config_Files
 function love.conf(t)
 	t.identity = nil -- The name of the save directory (string)

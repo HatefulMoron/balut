@@ -1,4 +1,5 @@
--- Game module: Contains core Balut game logic
+-- game.lua
+-- Contains core game logic.
 
 local game = {}
 local upgrades = require("upgrades")
