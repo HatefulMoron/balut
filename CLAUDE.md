@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Balut is a game built with [LÖVE](https://love2d.org/) (LÖVE 11.4), a Lua-based 2D game framework.
 
+### Game Mechanics
+
+For detailed information about how the Balut dice game works, including:
+- Game screens (Shop and Game)
+- Gameplay rules (hands, rerolls, scoring categories)
+- Available upgrades
+
+See **[RULES.md](./RULES.md)** in the repository root.
+
 ## Running the Game
 
 To run the game during development:
